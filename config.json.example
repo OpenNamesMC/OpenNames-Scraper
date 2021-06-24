@@ -1,0 +1,8 @@
+{
+  "threadCount": 10,
+  "database": {
+    "url": "mongodb://localhost:27017/",
+    "databaseName": "scrape",
+    "databaseCollection": "profiles"
+  }
+}
