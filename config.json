@@ -1,0 +1,8 @@
+{
+  "threadCount": 50,
+  "database": {
+    "url": "mongodb://localhost:27017/",
+    "databaseName": "opennames",
+    "databaseCollection": "profiles"
+  }
+}
