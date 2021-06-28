@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -68,7 +69,7 @@ func ResponseToProfiles(r Response) ([]Profile, error) {
 		p = append(p, Profile{
 			Lastupdated: time.Now().Unix(),
 			Name:        profile.Name,
-			UUID:        profile.UUID,
+			UUID:        strings.ReplaceAll(profile.UUID, "-", ""),
 			NameHistory: reverseNCs(Hist),
 		})
 	}
