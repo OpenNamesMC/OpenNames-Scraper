@@ -1,0 +1,9 @@
+{
+    "threads": 30,
+    "chunkSize": 50,
+    "dbUrl": "mongodb://127.0.0.1:27017/OpenNames/",
+    "workerUrl": "https://opennames.opennames.workers.dev/aschonn_data",
+    "file": "uuids.txt"
+}
+
+
