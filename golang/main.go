@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -39,10 +40,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer client.Disconnect(ctx)
+	fmt.Println("\nSuccessfully connected to MongoDB")
 	profiles := client.Database("OpenNames").Collection("profiles")
 
-	chunks := GetChunks(config.File)
-	fmt.Printf("Divided UUIDs into %d chunks of %d\n", len(chunks), config.Chunksize)
+	fmt.Println("\nGetting UUIDs already in the DB")
+	already := GetUUIDsInDB(profiles, ctx)
+	fmt.Printf("%d UUIDs are already in the DB\n", len(already))
+
+	fmt.Println("\nGetting UUIDs from file...")
+	IDs := GetUUIDs(config.File)
+	fmt.Println("\nRemoving duplicates and those already in the DB...")
+	IDs = removeDuplicates(IDs)
+	IDs = removeAlreadyInDB(IDs, already)
+	fmt.Printf("\nGot %d new UUIDs. Dividing them into chunks...\n", len(IDs))
+	chunks := DivideIntoChunks(IDs, config.Chunksize)
+	fmt.Printf("\nDivided UUIDs into %d chunks of %d\nStarting to fetch data...\n", len(chunks), config.Chunksize)
 
 	for _, chunk := range chunks {
 		for {
@@ -57,9 +69,10 @@ func main() {
 					AddToDB(res, profiles, ctx)
 					fmt.Println("Added 50 to db", time.Now().UTC())
 				}()
+				time.Sleep(time.Millisecond * 50)
 				break
 			}
-			time.Sleep(time.Millisecond * 5)
+			time.Sleep(time.Millisecond * 50)
 		}
 	}
 }
@@ -97,37 +110,31 @@ func GetData(data []string) Response {
 	return res
 }
 
-func GetChunks(file string) [][]string {
-
+func GetUUIDs(file string) []string {
 	// read from file
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		fmt.Println("File reading error", err)
-		var r [][]string
+		var r []string
 		return r
 	}
-
-	IDs := strings.Split(string(data), "\n")
-
-	// turn into chunks of 50
-	return DivideIntoChunks(IDs, config.Chunksize)
+	return strings.Split(string(data), "\n")
 }
 
-// https://stackoverflow.com/a/67011816
-func DivideIntoChunks(xs []string, chunkSize int) [][]string {
-	if len(xs) == 0 {
-		return nil
+func GetUUIDsInDB(profiles *mongo.Collection, ctx context.Context) []string {
+	var already []string
+	cursor, err := profiles.Find(context.TODO(), bson.D{})
+	if err != nil {
+		log.Fatal(err)
 	}
-	divided := make([][]string, (len(xs)+chunkSize-1)/chunkSize)
-	prev := 0
-	i := 0
-	till := len(xs) - chunkSize
-	for prev < till {
-		next := prev + chunkSize
-		divided[i] = xs[prev:next]
-		prev = next
-		i++
+	for cursor.Next(ctx) {
+		var result bson.M
+		err := cursor.Decode(&result)
+		if err != nil {
+			fmt.Println(err)
+		}
+		uuid := result["uuid"].(string)
+		already = append(already, uuid)
 	}
-	divided[i] = xs[prev:]
-	return divided
+	return already
 }
